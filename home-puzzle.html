@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>HOME Puzzle Game 🧩</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: #f0f0f0;
+      text-align: center;
+    }
+    h1 {
+      color: #8652ff;
+    }
+    #controls {
+      margin: 20px;
+    }
+    select, button {
+      padding: 10px;
+      font-size: 16px;
+    }
+    #score {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    #game-container {
+      margin: 0 auto;
+      display: grid;
+      gap: 2px;
+      width: 400px;
+      height: 400px;
+      background: #ddd;
+    }
+    .tile {
+      width: 100%;
+      height: 100%;
+      background-size: 100% 100%;
+      box-sizing: border-box;
+      touch-action: none;
+    }
+    .tile.drag-over {
+      outline: 3px dashed #333;
+    }
+  </style>
+</head>
+<body>
+  <h1>🏠 HOME Puzzle (Drag & Drop) 🧩</h1>
+
+  <div id="controls">
+    <label for="level-select">Choose Level:</label>
+    <select id="level-select">
+      <option value="1">Level 1 (3x3)</option>
+      <option value="2">Level 2 (3x3)</option>
+      <option value="3">Level 3 (3x3)</option>
+      <option value="4">Level 4 (4x4)</option>
+      <option value="5">Level 5 (4x4)</option>
+      <option value="6">Level 6 (4x4)</option>
+      <option value="7">Level 7 (4x4)</option>
+      <option value="8">Level 8 (5x5)</option>
+      <option value="9">Level 9 (5x5)</option>
+      <option value="10">Level 10 (5x5)</option>
+    </select>
+    <button onclick="startGame()">Start Game</button>
+    <div id="score">Moves: 0</div>
+  </div>
+
+  <div id="game-container"></div>
+
+  <script>
+    const container = document.getElementById("game-container");
+    const scoreDisplay = document.getElementById("score");
+
+    const levels = {
+      1: { img: "home-level1.jpg", size: 3 },
+      2: { img: "home-level2.jpg", size: 3 },
+      3: { img: "home-level3.jpg", size: 3 },
+      4: { img: "home-level4.jpg", size: 4 },
+      5: { img: "home-level5.jpg", size: 4 },
+      6: { img: "home-level6.jpg", size: 4 },
+      7: { img: "home-level7.jpg", size: 4 },
+      8: { img: "home-level8.jpg", size: 5 },
+      9: { img: "home-level9.jpg", size: 5 },
+      10: { img: "home-level10.jpg", size: 5 },
+    };
+
+    let tiles = [];
+    let gridSize = 3;
+    let moves = 0;
+    let dragged = null;
+    let currentImage = '';
+
+    function startGame() {
+      const level = document.getElementById("level-select").value;
+      const { img, size } = levels[level];
+      currentImage = img;
+      gridSize = size;
+      moves = 0;
+      scoreDisplay.textContent = `Moves: 0`;
+
+      container.innerHTML = "";
+      container.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+      container.style.gridTemplateRows = `repeat(${size}, 1fr)`;
+
+      // Create tile indexes
+      tiles = Array.from({ length: size * size }, (_, i) => i);
+      shuffle(tiles);
+
+      for (let i = 0; i < tiles.length; i++) {
+        const tile = document.createElement("div");
+        const correctIndex = tiles[i];
+        tile.classList.add("tile");
+        tile.draggable = true;
+        tile.dataset.correct = correctIndex;
+        tile.dataset.current = i;
+
+        const x = correctIndex % size;
+        const y = Math.floor(correctIndex / size);
+        tile.style.backgroundImage = `url(${img})`;
+        tile.style.backgroundSize = `${size * 100}% ${size * 100}%`;
+        tile.style.backgroundPosition = `${(x * 100) / (size - 1)}% ${(y * 100) / (size - 1)}%`;
+
+        // Mouse drag & drop
+        tile.addEventListener("dragstart", dragStart);
+        tile.addEventListener("dragover", dragOver);
+        tile.addEventListener("dragleave", dragLeave);
+        tile.addEventListener("drop", drop);
+
+        // Touch events
+        tile.addEventListener("touchstart", touchStart, { passive: false });
+        tile.addEventListener("touchmove", touchMove, { passive: false });
+        tile.addEventListener("touchend", touchEnd, { passive: false });
+
+        container.appendChild(tile);
+      }
+    }
+
+    // Mouse events
+    function dragStart(e) {
+      dragged = e.target;
+    }
+
+    function dragOver(e) {
+      e.preventDefault();
+      e.target.classList.add("drag-over");
+    }
+
+    function dragLeave(e) {
+      e.target.classList.remove("drag-over");
+    }
+
+    function drop(e) {
+      e.preventDefault();
+      e.target.classList.remove("drag-over");
+
+      const fromIndex = Array.from(container.children).indexOf(dragged);
+      const toIndex = Array.from(container.children).indexOf(e.target);
+
+      if (fromIndex === toIndex) return;
+
+      // Swap tiles
+      container.insertBefore(dragged, container.children[toIndex]);
+      container.insertBefore(e.target, container.children[fromIndex]);
+
+      moves++;
+      scoreDisplay.textContent = `Moves: ${moves}`;
+      checkWin();
+    }
+
+    // Touch events
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchedTile = null;
+
+    function touchStart(e) {
+      e.preventDefault();
+      touchedTile = e.target;
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }
+
+    function touchMove(e) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      if (el && el.classList.contains("tile")) {
+        el.classList.add("drag-over");
+      }
+    }
+
+    function touchEnd(e) {
+      const touch = e.changedTouches[0];
+      const targetTile = document.elementFromPoint(touch.clientX, touch.clientY);
+
+      if (
+        touchedTile &&
+        targetTile &&
+        touchedTile !== targetTile &&
+        targetTile.classList.contains("tile")
+      ) {
+        const fromIndex = Array.from(container.children).indexOf(touchedTile);
+        const toIndex = Array.from(container.children).indexOf(targetTile);
+
+        container.insertBefore(touchedTile, container.children[toIndex]);
+        container.insertBefore(targetTile, container.children[fromIndex]);
+
+        moves++;
+        scoreDisplay.textContent = `Moves: ${moves}`;
+        checkWin();
+      }
+
+      document.querySelectorAll(".tile").forEach(tile =>
+        tile.classList.remove("drag-over")
+      );
+
+      touchedTile = null;
+    }
+
+    function checkWin() {
+      const tiles = Array.from(container.children);
+      const isCorrect = tiles.every((tile, index) => {
+        const correct = parseInt(tile.dataset.correct);
+        return correct === index;
+      });
+
+      if (isCorrect) {
+        setTimeout(() => alert("🎉 YOU COMPLETED THE PUZZLE! 🏠"), 200);
+      }
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+  </script>
+</body>
+</html>
